@@ -7,6 +7,7 @@ const AttentionRangeSlider = () => {
     medium: 50,
     low: 25
   });
+  const [liveAttention, setLiveAttention] = useState(0); // New state for live attention
 
   useEffect(() => {
     // Fetch initial ranges from the server
@@ -17,6 +18,19 @@ const AttentionRangeSlider = () => {
       .catch(error => {
         console.error('Error fetching ranges:', error);
       });
+
+    // Fetch live attention value every second
+    const interval = setInterval(() => {
+      axios.get('http://localhost:5000/get_attention')
+        .then(response => {
+          setLiveAttention(response.data.attention);
+        })
+        .catch(error => {
+          console.error('Error fetching live attention:', error);
+        });
+    }, 1000);
+
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   const handleSliderChange = (event) => {
@@ -48,6 +62,29 @@ const AttentionRangeSlider = () => {
     <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md space-y-4">
       <h2 className="text-2xl font-bold text-center">Attention Range Adjuster</h2>
       
+      {/* Display live attention value */}
+      <div className="text-center">
+        <h3 className="text-lg font-semibold">Live Attention Value: {liveAttention}</h3>
+      </div>
+
+      {/* New section for live attention visualization */}
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-2">Live Attention Visualization</h3>
+        <div className="w-full h-8 bg-gray-200 rounded-lg">
+          <div
+            style={{ width: `${liveAttention}%` }}
+            className={`h-full ${getColor(liveAttention)}`}
+          ></div>
+        </div>
+        <div className="flex justify-between text-sm mt-1">
+          <span>0</span>
+          <span>25</span>
+          <span>50</span>
+          <span>75</span>
+          <span>100</span>
+        </div>
+      </div>
+
       {Object.entries(ranges).map(([key, value]) => (
         <div key={key} className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
