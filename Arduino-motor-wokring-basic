@@ -86,17 +86,24 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       motor1.setSpeed(255);  // Full speed forward
       motor2.setSpeed(255);
     } else if (text == "B") {
-      motor1.setSpeed(-255); // Full speed backward
+      motor1.setSpeed(255);  // Turn right: Motor1 forward, Motor2 backward
       motor2.setSpeed(-255);
+      delay(500);            // Turn duration in milliseconds
+      motor1.setSpeed(0);    // Stop motors after turn
+      motor2.setSpeed(0);
     } else if (text == "C") {
-      motor1.setSpeed(0);    // Stop motors
+      motor1.setSpeed(-255); // Turn left: Motor1 backward, Motor2 forward
+      motor2.setSpeed(255);
+      delay(500);            // Turn duration in milliseconds
+      motor1.setSpeed(0);    // Stop motors after turn
       motor2.setSpeed(0);
     } else if (text == "D") {
-      motor1.setSpeed(128); // Reverse at half speed
-      motor2.setSpeed(128);
+      motor1.setSpeed(0);    // Stop motors
+      motor2.setSpeed(0);
     }
   }
 }
+
 
 void setup() {
   Serial.begin(115200);
