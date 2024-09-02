@@ -1,0 +1,117 @@
+// #include "CytronMotorDriver.h"
+// #include <WebSocketsServer.h>
+// #include <WiFi.h>
+
+// // Define Wi-Fi credentials
+// const char* ssid = "shivani05shri"; // Replace with your Wi-Fi SSID
+// const char* password = "Kaushik[456]"; // Replace with your Wi-Fi password
+
+// // Define new pins for ESP32
+// #define PWM1A_PIN  17  
+// #define PWM1B_PIN  32 
+// #define PWM2A_PIN  33  
+// #define PWM2B_PIN  35  
+
+// // Create WebSocket server on port 81
+// WebSocketsServer webSocket(81);
+
+// // Configure the motor driver with ESP32 pins.
+// CytronMD motor1(PWM_PWM, PWM1A_PIN, PWM1B_PIN); 
+// CytronMD motor2(PWM_PWM, PWM2A_PIN, PWM2B_PIN);  
+
+// void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+//   // When a WebSocket message is received
+//   if (type == WStype_TEXT) {
+//     String text = String((char *) payload);
+//     if (text == "A") {
+//       motor1.setSpeed(255);  // Full speed forward
+//       motor2.setSpeed(255);
+//     } else if (text == "B") {
+//       motor1.setSpeed(255); // Full speed backward
+//       motor2.setSpeed(255);
+//     } else if (text == "C") {
+//       motor1.setSpeed(0);    // Stop motors
+//       motor2.setSpeed(0);
+//     } else if (text == "D") {
+//       motor1.setSpeed(128); // Reverse at half speed
+//       motor2.setSpeed(128);
+//     }
+//   }
+// }
+
+// void setup() {
+//   Serial.begin(115200);
+//   WiFi.begin(ssid, password);
+//   while (WiFi.status() != WL_CONNECTED) {
+//     delay(500);
+//     Serial.print(".");
+//   }
+//   Serial.println("WiFi connected");
+
+//   // Initialize WebSocket
+//   webSocket.begin();
+//   webSocket.onEvent(webSocketEvent);
+// }
+
+// void loop() {
+//   webSocket.loop();  // constantly check for WebSocket events
+// }
+
+
+#include "CytronMotorDriver.h"
+#include <WebSocketsServer.h>
+#include <WiFi.h>
+
+// Define Wi-Fi credentials
+const char* ssid = "shivani05shri"; // Replace with your Wi-Fi SSID
+const char* password = "Kaushik[456]"; // Replace with your Wi-Fi password
+
+// Define new pins for ESP32
+#define PWM1A_PIN  12  // Valid PWM pin
+#define PWM1B_PIN  13  // Valid PWM pin
+#define PWM2A_PIN  14  // Valid PWM pin
+#define PWM2B_PIN  27  // Valid PWM pin
+
+// Create WebSocket server on port 81
+WebSocketsServer webSocket(81);
+
+// Configure the motor driver with ESP32 pins.
+CytronMD motor1(PWM_PWM, PWM1A_PIN, PWM1B_PIN); 
+CytronMD motor2(PWM_PWM, PWM2A_PIN, PWM2B_PIN);  
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+  if (type == WStype_TEXT) {
+    String text = String((char *) payload);
+    if (text == "A") {
+      motor1.setSpeed(255);  // Full speed forward
+      motor2.setSpeed(255);
+    } else if (text == "B") {
+      motor1.setSpeed(-255); // Full speed backward
+      motor2.setSpeed(-255);
+    } else if (text == "C") {
+      motor1.setSpeed(0);    // Stop motors
+      motor2.setSpeed(0);
+    } else if (text == "D") {
+      motor1.setSpeed(128); // Reverse at half speed
+      motor2.setSpeed(128);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("WiFi connected");
+
+  // Initialize WebSocket
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+}
+
+void loop() {
+  webSocket.loop();  // constantly check for WebSocket events
+}
