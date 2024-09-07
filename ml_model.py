@@ -29,7 +29,7 @@ ranges = {
     'low': 25
 }
 
-latest_attention_value = 0
+latest_attention_value = 0  # This variable will hold the latest attention value
 
 # Function to extract features from EEG data
 def extract_features(eeg_data):
@@ -120,9 +120,10 @@ def meditation_callback(value):
 
 # Callback function to handle attention data
 def attention_callback(value):
-    global last_function_call_time, ranges
+    global last_function_call_time, ranges, latest_attention_value  # Include latest_attention_value
 
     print("Attention: ", value)
+    latest_attention_value = value  # Update the latest attention value
 
     current_time = time.time()
     if current_time - last_function_call_time >= 1:
