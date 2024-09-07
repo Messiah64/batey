@@ -10,7 +10,6 @@ from flask_cors import CORS
 from threading import Thread
 import subprocess
 import psutil
-import keyboard  # Add this import at the top
 
 app = Flask(__name__)
 CORS(app)
@@ -160,28 +159,12 @@ def get_ranges():
 def run_flask():
     app.run(debug=False, port=5000)
 
-def listen_for_keypresses():
-    """Listen for key presses and send corresponding commands."""
-    while True:
-        if keyboard.is_pressed('w'):
-            A()
-        elif keyboard.is_pressed('a'):
-            C()
-        elif keyboard.is_pressed('d'):
-            B()
-        elif keyboard.is_pressed('s'):
-            D()
-
 def main():
     global last_function_call_time
 
     # Start Flask in a separate thread
     flask_thread = Thread(target=run_flask)
     flask_thread.start()
-
-    # Start listening for key presses in a separate thread
-    keypress_thread = Thread(target=listen_for_keypresses)
-    keypress_thread.start()
 
     # Initialize the MindWave device
     mw = MindWave(address='A4:DA:32:70:03:4E', autostart=False, verbose=3)
