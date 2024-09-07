@@ -63,7 +63,6 @@ def open_google_chrome():
     def is_chrome_running():
         for proc in psutil.process_iter(['name']):
             try:
-                # Check if any process has the name 'chrome.exe' (case insensitive)
                 if proc.info['name'].lower() == 'chrome.exe':
                     return True
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
@@ -72,18 +71,26 @@ def open_google_chrome():
 
     try:
         if not is_chrome_running():
-            # Use the 'start' command to open Google Chrome on Windows
-            subprocess.run(["start", "chrome"], shell=True)
+            # Open a specific website in Google Chrome in the foreground
+            subprocess.run(["start", "chrome", "https://www.example.com"], shell=True)  # Replace with your desired URL
             print("Google Chrome opened successfully.")
         else:
             print("Google Chrome is already running.")
     except Exception as e:
         print(f"Failed to open Google Chrome: {e}")
 
+def press_tab_keys():
+    """Simulate pressing the Tab key 17 times."""
+    for _ in range(17):
+        keyboard.press('tab')
+        keyboard.release('tab')
+        time.sleep(0.1)  # Small delay between key presses
+
 def D():
     print(f"Function D: Attention is low (more than 0 but less than or equal to {ranges['low']})")
     asyncio.run(send_command_via_websocket('D'))
-    open_google_chrome()
+    open_google_chrome()  # Call to open Google Chrome
+    press_tab_keys()  # Call to press Tab keys
 
 # Callback function to handle EEG data
 def eeg_callback(data):
