@@ -10,6 +10,7 @@ from flask_cors import CORS
 from threading import Thread
 import subprocess
 import psutil
+import keyboard  # Add this import at the top
 
 app = Flask(__name__)
 CORS(app)
@@ -180,7 +181,16 @@ def main():
     # Keep the script running
     try:
         while True:
-            time.sleep(1)
+            # Check for key presses without hindering existing functionality
+            if keyboard.is_pressed('w'):  # Check if 'W' is pressed
+                A()
+            elif keyboard.is_pressed('a'):  # Check if 'A' is pressed
+                C()
+            elif keyboard.is_pressed('d'):  # Check if 'D' is pressed
+                B()
+            elif keyboard.is_pressed('s'):  # Check if 'S' is pressed
+                D()
+            time.sleep(0.1)  # Add a small delay to prevent high CPU usage
     except KeyboardInterrupt:
         print("Script interrupted and stopped.")
     finally:
