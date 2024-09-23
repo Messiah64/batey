@@ -90,6 +90,7 @@ def D():
     print(f"Function D: Attention is low (more than 0 but less than or equal to {ranges['low']})")
     asyncio.run(send_command_via_websocket('D'))
     open_google_chrome()  # Call to open Google Chrome
+    time.sleep(5)
     press_tab_keys()  # Call to press Tab keys
 
 # Callback function to handle EEG data
@@ -128,10 +129,10 @@ def meditation_callback(value):
 
 # Callback function to handle attention data
 def attention_callback(value):
-    global last_function_call_time, ranges, latest_attention_value  # Include latest_attention_value
+    global last_function_call_time, ranges, latest_attention_value 
 
     print("Attention: ", value)
-    latest_attention_value = value  # Update the latest attention value
+    latest_attention_value = value  
 
     current_time = time.time()
     if current_time - last_function_call_time >= 1:
