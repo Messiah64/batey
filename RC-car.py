@@ -26,19 +26,19 @@ model = None
 last_function_call_time = time.time()
 ranges = {
     'high': 75,
-    'medium': 50,
+    'medium': 50,                           
     'low': 25
 }
 
 latest_attention_value = 0  # This variable will hold the latest attention value
 
 # Function to extract features from EEG data
-def extract_features(eeg_data):
+def extract_features(eeg_data): 
     return np.array([eeg_data[f] for f in FEATURES]).reshape(1, -1)
 
 async def send_command_via_websocket(command):
     """Send command to ESP32 via WebSocket."""
-    try:
+    try:        
         async with websockets.connect(ESP32_URI) as websocket:
             await websocket.send(command)
             print(f"Sent command via WebSocket: {command}")
@@ -57,41 +57,9 @@ def C():
     print(f"Function C: Attention is medium-low (more than {ranges['low']} but less than or equal to {ranges['medium']})")
     asyncio.run(send_command_via_websocket('C'))
 
-# Function to open Google Chrome on Windows
-def open_google_chrome():
-    # Function to check if Google Chrome is already running
-    def is_chrome_running():
-        for proc in psutil.process_iter(['name']):
-            try:
-                if proc.info['name'].lower() == 'chrome.exe':
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-        return False
-
-    try:
-        if not is_chrome_running():
-            # Open a specific website in Google Chrome in the foreground
-            subprocess.run(["start", "chrome", "https://www.example.com"], shell=True)  # Replace with your desired URL
-            print("Google Chrome opened successfully.")
-        else:
-            print("Google Chrome is already running.")
-    except Exception as e:
-        print(f"Failed to open Google Chrome: {e}")
-
-def press_tab_keys():
-    """Simulate pressing the Tab key 17 times."""
-    for _ in range(17):
-        keyboard.press('tab')
-        keyboard.release('tab')
-        time.sleep(0.1)  # Small delay between key presses
-
 def D():
     print(f"Function D: Attention is low (more than 0 but less than or equal to {ranges['low']})")
-    asyncio.run(send_command_via_websocket('D'))
-    open_google_chrome()  # Call to open Google Chrome
-    time.sleep(5)
-    press_tab_keys()  # Call to press Tab keys
+    asyncio.run(send_command_via_websocket('D'))                                                                                                                                                           
 
 # Callback function to handle EEG data
 def eeg_callback(data):
@@ -129,10 +97,10 @@ def meditation_callback(value):
 
 # Callback function to handle attention data
 def attention_callback(value):
-    global last_function_call_time, ranges, latest_attention_value 
+    global last_function_call_time, ranges, latest_attention_value  # Include latest_attention_value
 
     print("Attention: ", value)
-    latest_attention_value = value  
+    latest_attention_value = value  # Update the latest attention value
 
     current_time = time.time()
     if current_time - last_function_call_time >= 1:
@@ -189,15 +157,6 @@ def main():
     # Keep the script running
     try:
         while True:
-            # Check for key presses without hindering existing functionality
-            if keyboard.is_pressed('w'):  # Check if 'W' is pressed
-                A()
-            elif keyboard.is_pressed('a'):  # Check if 'A' is pressed
-                C()
-            elif keyboard.is_pressed('d'):  # Check if 'D' is pressed
-                B()
-            elif keyboard.is_pressed('s'):  # Check if 'S' is pressed
-                D()
             time.sleep(0.1)  # Add a small delay to prevent high CPU usage
     except KeyboardInterrupt:
         print("Script interrupted and stopped.")
