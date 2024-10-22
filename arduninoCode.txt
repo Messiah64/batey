@@ -1,0 +1,113 @@
+#include "CytronMotorDriver.h"
+#include <WebSocketsServer.h>
+#include <WiFi.h>
+#include <Adafruit_NeoPixel.h>
+
+// Define Wi-Fi credentials
+const char* ssids[] = {"Kaushik", "Htun's IPhone", "Hacker"}; // List of SSIDs
+const char* passwords[] = {"kaushik4555", "417190nmw", "mo123456"}; // Corresponding passwords
+
+// Define new pins for ESP32
+#define PWM1A_PIN  12  // Valid PWM pin
+#define PWM1B_PIN  13  // Valid PWM pin
+#define PWM2A_PIN  14  // Valid PWM pin
+#define PWM2B_PIN  27  // Valid PWM pin
+#define NEOPIXEL_PIN 26 // Pin for NeoPixel, GPIO 26
+
+// Define NeoPixel settings
+#define NUMPIXELS 64 // Number of LEDs in the NeoPixel matrix
+Adafruit_NeoPixel pixels(NUMPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
+
+// Create WebSocket server on port 81
+WebSocketsServer webSocket(81);
+
+// Configure the motor driver with ESP32 pins
+CytronMD motor1(PWM_PWM, PWM1A_PIN, PWM1B_PIN);
+CytronMD motor2(PWM_PWM, PWM2A_PIN, PWM2B_PIN);
+
+// Function to attempt connection to Wi-Fi
+bool connectToWiFi() {
+  for (int i = 0; i < 3; i++) { // Iterate through SSID list
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssids[i]);
+    WiFi.begin(ssids[i], passwords[i]);
+
+    int retryCount = 0;
+    while (WiFi.status() != WL_CONNECTED && retryCount < 20) { // Retry for each SSID
+      delay(500);
+      Serial.print(".");
+      retryCount++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("");
+      Serial.print("Connected to ");
+      Serial.println(ssids[i]);
+      Serial.print("IP Address: ");
+      Serial.println(WiFi.localIP());
+      return true; // Exit the function if successfully connected
+    }
+  }
+
+  return false; // Return false if all SSIDs fail to connect
+}
+
+void setAllPixels(uint32_t color) {
+  for (int i = 0; i < NUMPIXELS; i++) {
+    pixels.setPixelColor(i, color);
+  }
+  pixels.show();
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
+  if (type == WStype_TEXT) {
+    String text = String((char*)payload);
+    if (text == "A") {
+      motor1.setSpeed(255);  // Full speed forward
+      motor2.setSpeed(255);
+      setAllPixels(pixels.Color(255, 0, 0)); // Set all pixels to red
+    } else if (text == "B") {
+      motor1.setSpeed(255);  // Turn right: Motor1 forward, Motor2 backward
+      motor2.setSpeed(-255);
+      setAllPixels(pixels.Color(255, 255, 0)); // Set all pixels to yellow
+      delay(500);            // Turn duration in milliseconds
+      motor1.setSpeed(0);    // Stop motors after turn
+      motor2.setSpeed(0);
+    } else if (text == "C") {
+      motor1.setSpeed(-255); // Turn left: Motor1 backward, Motor2 forward
+      motor2.setSpeed(255);
+      setAllPixels(pixels.Color(0, 255, 0)); // Set all pixels to green
+      delay(500);            // Turn duration in milliseconds
+      motor1.setSpeed(0);    // Stop motors after turn
+      motor2.setSpeed(0);
+    } else if (text == "D") {
+      motor1.setSpeed(0);    // Stop motors
+      motor2.setSpeed(0);
+      setAllPixels(pixels.Color(0, 0, 255)); // Set all pixels to blue
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  if (!connectToWiFi()) {
+    Serial.println("Failed to connect to any Wi-Fi network");
+    while (true) { // Infinite loop to stop further execution if Wi-Fi fails
+      delay(1000);
+    }
+  }
+
+  // Initialize WebSocket
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+
+  // Initialize NeoPixel
+  pixels.begin();
+  pixels.clear();
+  pixels.show();
+}
+
+void loop() {
+  webSocket.loop();  // Constantly check for WebSocket events
+}
