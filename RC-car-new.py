@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 
 # WebSocket URI for ESP32 (replace with your ESP32's IP address)
-ESP32_URI = "ws://172.20.10.2:81"
+ESP32_URI = "ws://192.168.6.217:81"
 
 # Define EEG features
 FEATURES = ['delta', 'theta', 'alpha_l', 'alpha_h', 'beta_l', 'beta_h']
@@ -33,10 +33,10 @@ signal_processor = None
 
 class AttentionSignalProcessor:
     def __init__(self, 
-                 window_size=10,
-                 median_window=5,
-                 threshold_change=20,
-                 min_stable_duration=1.0):
+                 window_size=3,
+                 median_window=3,
+                 threshold_change=30,
+                 min_stable_duration=0.3):
         """
         Initialize the signal processor with filtering parameters.
         
@@ -59,7 +59,9 @@ class AttentionSignalProcessor:
     def moving_average_filter(self, value):
         """Apply moving average filter to smooth the signal."""
         self.attention_buffer.append(value)
-        return np.mean(self.attention_buffer)
+        weights = np.linspace(0.5, 1.0, len(self.attention_buffer))
+        weighted_avg = np.average(list(self.attention_buffer), weights=weights)
+        return weighted_avg
     
     def median_filter(self, values):
         """Apply median filter to remove spikes."""
