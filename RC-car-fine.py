@@ -20,7 +20,7 @@ app = Flask(__name__)
 CORS(app)
 
 # WebSocket URI for ESP32
-ESP32_URI = "ws://172.20.10.2:81"
+ESP32_URI = "ws://192.168.43.53:80"
 
 # Define EEG features
 FEATURES = ['delta', 'theta', 'alpha_l', 'alpha_h', 'beta_l', 'beta_h']
@@ -148,7 +148,7 @@ class AttentionSignalProcessor:
     
     def hysteresis_filter(self, value):
         current_time = time.time()
-        new_state = 'MOVE' if value > 80 else 'STAY'
+        new_state = 'MOVE' if value >= 65 else 'STAY'
         
         if (self.current_state != new_state and 
             current_time - self.last_state_change >= self.min_stable_duration):

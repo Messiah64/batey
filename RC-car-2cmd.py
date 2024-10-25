@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 
 # WebSocket URI for ESP32 (replace with your ESP32's IP address)
-ESP32_URI = "ws://172.20.10.2:81"
+ESP32_URI = "ws://192.168.43.53:80"
 
 # Define EEG features
 FEATURES = ['delta', 'theta', 'alpha_l', 'alpha_h', 'beta_l', 'beta_h']

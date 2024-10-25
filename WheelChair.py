@@ -8,163 +8,185 @@ import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from threading import Thread
-import subprocess
-import psutil
-import keyboard  # Add this import at the top
+from collections import deque
+from scipy.signal import medfilt
 
 app = Flask(__name__)
 CORS(app)
 
 # WebSocket URI for ESP32 (replace with your ESP32's IP address)
-ESP32_URI = "ws://172.20.10.3:80"  # Replace with the actual IP address
+ESP32_URI = "ws://192.168.43.53:80"
 
-# Define EEG features (can be adjusted based on your data)
+# Define EEG features
 FEATURES = ['delta', 'theta', 'alpha_l', 'alpha_h', 'beta_l', 'beta_h']
 
 # Global variables
 model = None
 last_function_call_time = time.time()
-ranges = {
-    'high': 75,
-    'medium': 50,                           
-    'low': 25
-}
+latest_attention_value = 0
+signal_processor = None
+last_state = None  # Track the last state to prevent duplicate commands
 
-latest_attention_value = 0  # This variable will hold the latest attention value
-
-# Function to extract features from EEG data
-def extract_features(eeg_data): 
-    return np.array([eeg_data[f] for f in FEATURES]).reshape(1, -1)
+class AttentionSignalProcessor:
+    def __init__(self, 
+                 window_size=10,
+                 median_window=5,
+                 threshold_change=20,
+                 min_stable_duration=1.0):
+        """
+        Initialize the signal processor with filtering parameters.
+        """
+        self.window_size = window_size
+        self.median_window = median_window
+        self.threshold_change = threshold_change
+        self.min_stable_duration = min_stable_duration
+        
+        self.attention_buffer = deque(maxlen=window_size)
+        self.last_filtered_value = None
+        self.last_state_change = 0
+        self.current_state = None
+    
+    def moving_average_filter(self, value):
+        """Apply moving average filter to smooth the signal."""
+        self.attention_buffer.append(value)
+        return np.mean(self.attention_buffer)
+    
+    def median_filter(self, values):
+        """Apply median filter to remove spikes."""
+        return float(medfilt(np.array(values), self.median_window)[0])
+    
+    def hysteresis_filter(self, value):
+        """Apply hysteresis to prevent rapid state changes."""
+        current_time = time.time()
+        
+        # Determine the new state based on the threshold of 80
+        new_state = 'MOVE' if value >= 70 else 'STAY'
+        
+        # Check if enough time has passed since last state change
+        if (self.current_state != new_state and 
+            current_time - self.last_state_change >= self.min_stable_duration):
+            self.current_state = new_state
+            self.last_state_change = current_time
+            return new_state
+        
+        return self.current_state
+    
+    def process_attention(self, value):
+        """Process the attention value through all filters."""
+        # Apply moving average
+        ma_value = self.moving_average_filter(value)
+        
+        # Apply median filter if we have enough values
+        if len(self.attention_buffer) >= self.median_window:
+            med_value = self.median_filter(list(self.attention_buffer))
+        else:
+            med_value = ma_value
+        
+        # Limit rate of change
+        if self.last_filtered_value is not None:
+            change = med_value - self.last_filtered_value
+            if abs(change) > self.threshold_change:
+                med_value = self.last_filtered_value + np.sign(change) * self.threshold_change
+        
+        self.last_filtered_value = med_value
+        
+        # Apply hysteresis for state determination
+        state = self.hysteresis_filter(med_value)
+        
+        return med_value, state
 
 async def send_command_via_websocket(command):
     """Send command to ESP32 via WebSocket."""
-    try:        
+    try:
         async with websockets.connect(ESP32_URI) as websocket:
             await websocket.send(command)
             print(f"Sent command via WebSocket: {command}")
     except Exception as e:
         print(f"Failed to send command via WebSocket: {e}")
 
-# Update functions A, B, C, D to send commands to ESP32
-def A():
-    print(f"Function A: Attention is high (more than {ranges['high']})")
-    asyncio.run(send_command_via_websocket('MOVE_XY'))
+def MOVE():
+    """Function to handle high attention state."""
+    print("Function MOVE: Attention is high (more than 80)")
+    asyncio.run(send_command_via_websocket('MOVE'))
 
-def B():
-    print(f"Function B: Attention is medium-high (more than {ranges['medium']} but less than or equal to {ranges['high']})")
-    asyncio.run(send_command_via_websocket('MOVE_X'))
+def STAY():
+    """Function to handle low attention state."""
+    print("Function STAY: Attention is low (less than or equal to 80)")
+    asyncio.run(send_command_via_websocket('STAY'))
 
-def C():
-    print(f"Function C: Attention is medium-low (more than {ranges['low']} but less than or equal to {ranges['medium']})")
-    asyncio.run(send_command_via_websocket('MOVE_Y'))
+def extract_features(eeg_data):
+    """Extract features from EEG data."""
+    return np.array([eeg_data[f] for f in FEATURES]).reshape(1, -1)
 
-def D():
-    print(f"Function D: Attention is low (more than 0 but less than or equal to {ranges['low']})")
-    asyncio.run(send_command_via_websocket('STOP'))
-    open_google_chrome()                                                                                                                                                             
-
-# Function to open Google Chrome on Windows
-def open_google_chrome():
-    # Function to check if Google Chrome is already running
-    def is_chrome_running():
-        for proc in psutil.process_iter(['name']):
-            try:
-                if proc.info['name'].lower() == 'chrome.exe':
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-        return False
-                                                                                                                                        
-    try:
-        if not is_chrome_running():
-            # Open a specific website in Google Chrome in the foreground                                                                    
-            subprocess.run(["start", "chrome", "https://splms.polite.edu.sg/d2l/home/6667"], shell=True)  # Replace with your desired URL
-            print("Google Chrome opened successfully.")
-        else:                                                                   
-            print("Google Chrome is already running.")
-    except Exception as e:
-        print(f"Failed to open Google Chrome: {e}")
-
-# Callback function to handle EEG data
 def eeg_callback(data):
+    """Callback function to handle EEG data."""
     global model
 
-    # Extract features from EEG data
     features = extract_features(data)
 
-    # If model is not trained, train it on initial data (you should collect enough data points first)
     if model is None:
-        # Initialize an empty list for initial data
         initial_data = []
-
-        # Collect initial data for training
         initial_data.append(features.flatten())
 
-        # Train the model once we have enough data points
-        if len(initial_data) >= 10:  # Example threshold; adjust as needed
+        if len(initial_data) >= 10:
             model = OneClassSVM(nu=0.1)
             model.fit(initial_data)
             print("Model trained on initial data")
     else:
-        # Predict if the model is trained
         prediction = model.predict(features)
-
-        # Only process data classified as normal
         if prediction[0] == 1:
             print(f"EEG: {data}")
         else:
             print("EEG data classified as erratic, ignoring.")
 
-# Callback function to handle meditation data
 def meditation_callback(value):
+    """Callback function to handle meditation data."""
     print("Meditation: ", value)
 
-# Callback function to handle attention data
 def attention_callback(value):
-    global last_function_call_time, ranges, latest_attention_value  # Include latest_attention_value
-
-    print("Attention: ", value)
-    latest_attention_value = value  # Update the latest attention value
-
+    """Callback function to handle attention data with signal processing."""
+    global last_function_call_time, latest_attention_value, signal_processor, last_state
+    
+    # Process the attention value
+    filtered_value, state = signal_processor.process_attention(value)
+    latest_attention_value = filtered_value
+    
+    print(f"Raw Attention: {value}, Filtered: {filtered_value:.1f}, State: {state}")
+    
+    # Execute state function if enough time has passed and state has changed
     current_time = time.time()
-    if current_time - last_function_call_time >= 1:
-        if value > ranges['high']:
-            A()
-        elif value > ranges['medium']:
-            B()
-        elif value > ranges['low']:
-            C()
-        else:
-            D()
+    if current_time - last_function_call_time >= 1 and state != last_state:
+        if state == 'MOVE':
+            MOVE()
+        else:  # state == 'STAY'
+            STAY()
         last_function_call_time = current_time
+        last_state = state
 
 @app.route('/get_attention', methods=['GET'])
 def get_attention():
+    """Flask route to get current attention value."""
     return jsonify({"attention": latest_attention_value}), 200
 
-# Flask routes
-@app.route('/update_ranges', methods=['POST'])
-def update_ranges():
-    global ranges
-    new_ranges = request.json
-    ranges['high'] = new_ranges.get('high', ranges['high'])
-    ranges['medium'] = new_ranges.get('medium', ranges['medium'])
-    ranges['low'] = new_ranges.get('low', ranges['low'])
-    print(f"Ranges updated: {ranges}")
-    return jsonify({"message": "Ranges updated successfully"}), 200
-
-@app.route('/get_ranges', methods=['GET'])
-def get_ranges():
-    return jsonify(ranges), 200
-
 def run_flask():
+    """Run Flask server."""
     app.run(debug=False, port=5000)
 
 def main():
-    global last_function_call_time
-
+    """Main function to run the application."""
+    global last_function_call_time, signal_processor
+    
+    # Initialize signal processor with default parameters
+    signal_processor = AttentionSignalProcessor(
+        window_size=10,      # Adjust this value for more/less smoothing
+        median_window=5,     # Must be odd number, higher removes more spikes
+        threshold_change=20,  # Maximum allowed change between readings
+        min_stable_duration=1.0  # Minimum time to stay in a state
+    )
+    
     # Start Flask in a separate thread
     flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
     flask_thread.start()
 
     # Initialize the MindWave device
@@ -175,18 +197,17 @@ def main():
     mw.set_callback('meditation', meditation_callback)
     mw.set_callback('attention', attention_callback)
 
-    # Start the device and collect data
+    # Start the device
     mw.start()
 
-    # Keep the script running
     try:
         while True:
-            time.sleep(0.1)  # Add a small delay to prevent high CPU usage
+            time.sleep(0.1)
     except KeyboardInterrupt:
-        print("Script interrupted and stopped.")
+        print("\nScript interrupted by user")
     finally:
+        print("Cleaning up...")
         mw.stop()
-        # Optionally, you can add a way to stop the Flask thread here
 
 if __name__ == "__main__":
     main()
