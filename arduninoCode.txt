@@ -113,3 +113,6 @@ void setup() {
 void loop() {
   webSocket.loop();  // Constantly check for WebSocket events
 }
+
+
+// edit the code so that there's only two functions now. "MOVE" and "STAY" override all the other function. If the attention level's at 0-80 then throws the "STAY" command. If the attention level's above 80, then throws the "MOVE" command. Also make sure the command isn't duplicated means that if the attention stays at the same range 
